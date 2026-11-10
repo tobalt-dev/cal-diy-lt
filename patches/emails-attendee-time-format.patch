@@ -1,5 +1,5 @@
 --- a/packages/emails/src/templates/BaseScheduledEmail.tsx	2026-11-10 13:55:32.434476565 +0200
-+++ b/packages/emails/src/templates/BaseScheduledEmail.tsx	2026-11-10 13:55:32.456476441 +0200
++++ b/packages/emails/src/templates/BaseScheduledEmail.tsx	2026-11-10 14:26:14.317208961 +0200
 @@ -30,7 +30,8 @@
  ) => {
    const { t, timeZone, locale, timeFormat: timeFormat_ } = props;
@@ -10,3 +10,17 @@
  
    function getRecipientStart(format: string) {
      return dayjs(props.calEvent.startTime).tz(timeZone).format(format);
+@@ -43,9 +44,10 @@
+   const subject = t(props.subject || "confirmed_event_type_subject", {
+     eventType: props.calEvent.type,
+     name: props.calEvent.team?.name || props.calEvent.organizer.name,
+-    date: `${getRecipientStart("h:mma")} - ${getRecipientEnd("h:mma")}, ${t(
+-      getRecipientStart("dddd").toLowerCase()
+-    )}, ${t(getRecipientStart("MMMM").toLowerCase())} ${getRecipientStart("D, YYYY")}`,
++    date: `${getRecipientStart(timeFormat)} - ${getRecipientEnd(timeFormat)}, ${dayjs(props.calEvent.startTime)
++      .tz(timeZone)
++      .locale(locale)
++      .format("dddd, LL")}`,
+     interpolation: { escapeValue: false },
+   });
+ 
