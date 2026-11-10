@@ -26,6 +26,7 @@ jobs:
           ref="$(tr -d '[:space:]' < UPSTREAM_REF)"
           echo "sha=$ref" >> "$GITHUB_OUTPUT"
           echo "short=${ref:0:12}" >> "$GITHUB_OUTPUT"
+          echo "build=${ref:0:12}-${GITHUB_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
       - uses: actions/checkout@v4
         with:
@@ -65,5 +66,5 @@ jobs:
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ steps.ref.outputs.sha }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.ref.outputs.short }}
+            ghcr.io/${{ github.repository }}:${{ steps.ref.outputs.build }}
             ghcr.io/${{ github.repository }}:latest
