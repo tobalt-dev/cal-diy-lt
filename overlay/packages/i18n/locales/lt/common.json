@@ -1008,5 +1008,7 @@
   "your_monthly_digest": "Jūsų mėnesio suvestinė",
   "email_address": "El. pašto adresas",
   "sign_in": "Prisijungti",
-  "emailed_host_and_attendee": "Visiems išsiuntėme el. laišką su kalendoriaus kvietimu ir susitikimo informacija."
+  "emailed_host_and_attendee": "Visiems išsiuntėme el. laišką su kalendoriaus kvietimu ir susitikimo informacija.",
+  "Host": "Organizatorius",
+  "multiple_duration_timeUnit_short": "{{count}}$t({{unit}}_short)"
 }
