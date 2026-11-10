@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Register extra locales in upstream i18n.json and copy overlay files into the upstream tree."""
-import json, shutil, sys
+"""Register extra locales in upstream i18n.json, copy overlay files into the upstream tree,
+then apply patches/*.patch (git apply; any patch that no longer applies fails the build)."""
+import json, shutil, subprocess, sys
 from pathlib import Path
 
 EXTRA_LOCALES = ["lt"]
@@ -27,4 +28,10 @@ registered = json.loads(cfg_path.read_text())["locale"]["targets"]
 missing = [l for l in EXTRA_LOCALES if l not in registered or not (upstream / f"packages/i18n/locales/{l}/common.json").is_file()]
 if missing or copied == 0:
     sys.exit(f"overlay failed: missing={missing} copied={copied}")
-print(f"overlay ok: locales {EXTRA_LOCALES} registered, {copied} file(s) copied")
+patches = sorted((Path(__file__).resolve().parent.parent / "patches").glob("*.patch"))
+for patch in patches:
+    for args in (["--check"], []):
+        r = subprocess.run(["git", "apply", *args, str(patch)], cwd=upstream, capture_output=True, text=True)
+        if r.returncode != 0:
+            sys.exit(f"patch failed ({' '.join(args) or 'apply'}): {patch.name}\n{r.stderr}")
+print(f"overlay ok: locales {EXTRA_LOCALES} registered, {copied} file(s) copied, {len(patches)} patch(es) applied")

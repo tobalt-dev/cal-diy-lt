@@ -1,0 +1,21 @@
+--- a/packages/app-store/office365calendar/lib/CalendarService.ts	2026-11-10 13:26:05.275529372 +0200
++++ b/packages/app-store/office365calendar/lib/CalendarService.ts	2026-11-10 13:26:05.306529202 +0200
+@@ -488,14 +488,16 @@
+     const existingBody =
+       rescheduledEvent?.body?.contentType === "html" ? rescheduledEvent.body.content : undefined;
+ 
++    // Invite body follows the booking page language (attendee), not the organizer's profile locale.
++    const tAttendee = event.attendees[0]?.language?.translate;
+     let content = "";
+     if (isOnlineMeeting) {
+       if (isRescheduledOnlineMeeting && existingBody) {
+         content = `
+-        ${getRichDescriptionHTML(event)}<hr>
++        ${getRichDescriptionHTML(event, tAttendee)}<hr>
+         ${existingBody}`.trim();
+       } else {
+-        content = getRichDescriptionHTML(event);
++        content = getRichDescriptionHTML(event, tAttendee);
+       }
+     } else {
+       content = event.calendarDescription;
