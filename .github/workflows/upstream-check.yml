@@ -102,8 +102,8 @@ jobs:
             echo
             echo "| step | outcome |"; echo "|---|---|"
             echo "| overlay + patches | $OVERLAY |"; echo "| i18n placeholders | $DRIFT |"; echo "| image build | $BUILD |"
-            echo; echo '```'; cat overlay.log 2>/dev/null; echo '```'
-            echo; cat drift.md 2>/dev/null
+            echo; echo '```'; cat overlay.log 2>/dev/null || true; echo '```'
+            echo; cat drift.md 2>/dev/null || echo "(i18n check did not run)"
           } > body.md
           if [ "$OVERLAY" = success ] && [ "$DRIFT" = success ] && [ "$BUILD" = success ]; then
             git config user.name "github-actions[bot]"
