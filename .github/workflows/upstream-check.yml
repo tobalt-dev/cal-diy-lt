@@ -1,0 +1,117 @@
+name: upstream-check
+
+# Weekly: if calcom/cal.diy main moved past UPSTREAM_REF, test overlay + patches + i18n + a full
+# image build against it (nothing is pushed to the registry). Pass → branch upstream/<sha12> with
+# the bumped ref and an issue to merge it. Fail → an issue naming the step that broke.
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Upstream commit to test (default: latest main)"
+        required: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: upstream-check
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare upstream with pinned ref
+        id: up
+        env:
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          pinned="$(tr -d '[:space:]' < UPSTREAM_REF)"
+          latest="${INPUT_REF:-$(git ls-remote https://github.com/calcom/cal.diy refs/heads/main | cut -f1)}"
+          [[ "$latest" =~ ^[0-9a-f]{40}$ ]] || { echo "not a full commit sha: $latest"; exit 1; }
+          echo "pinned=$pinned latest=$latest"
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          echo "short=${latest:0:12}" >> "$GITHUB_OUTPUT"
+          echo "changed=$([ "$latest" != "$pinned" ] && echo 1 || echo 0)" >> "$GITHUB_OUTPUT"
+
+      - if: steps.up.outputs.changed == '1'
+        uses: actions/checkout@v4
+        with:
+          repository: calcom/cal.diy
+          ref: ${{ steps.up.outputs.latest }}
+          path: upstream
+
+      - name: Apply overlay and patches
+        id: overlay
+        if: steps.up.outputs.changed == '1'
+        run: python3 scripts/apply-overlay.py overlay upstream 2>&1 | tee overlay.log
+
+      - name: i18n drift
+        id: drift
+        if: steps.up.outputs.changed == '1'
+        run: python3 scripts/i18n-drift.py upstream overlay/packages/i18n/locales/lt/common.json | tee drift.md
+
+      - name: Free disk space
+        if: steps.up.outputs.changed == '1'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost
+          docker system prune -af
+
+      - if: steps.up.outputs.changed == '1'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build image (not pushed)
+        id: build
+        if: steps.up.outputs.changed == '1'
+        uses: docker/build-push-action@v6
+        with:
+          context: upstream
+          file: upstream/Dockerfile
+          platforms: linux/amd64
+          push: false
+          build-args: |
+            NEXT_PUBLIC_WEBAPP_URL=https://meet.tobalt.lt
+            CALCOM_TELEMETRY_DISABLED=1
+            MAX_OLD_SPACE_SIZE=6144
+
+      - name: Report
+        if: always() && steps.up.outputs.changed == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LATEST: ${{ steps.up.outputs.latest }}
+          SHORT: ${{ steps.up.outputs.short }}
+          OVERLAY: ${{ steps.overlay.outcome }}
+          DRIFT: ${{ steps.drift.outcome }}
+          BUILD: ${{ steps.build.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "Upstream: https://github.com/calcom/cal.diy/compare/$(tr -d '[:space:]' < UPSTREAM_REF)...$LATEST"
+            echo "Run: $RUN_URL"
+            echo
+            echo "| step | outcome |"; echo "|---|---|"
+            echo "| overlay + patches | $OVERLAY |"; echo "| i18n placeholders | $DRIFT |"; echo "| image build | $BUILD |"
+            echo; echo '```'; cat overlay.log 2>/dev/null; echo '```'
+            echo; cat drift.md 2>/dev/null
+          } > body.md
+          if [ "$OVERLAY" = success ] && [ "$DRIFT" = success ] && [ "$BUILD" = success ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898+github-actions[bot]@users.noreply.github.com"
+            git checkout -b "upstream/$SHORT"
+            echo "$LATEST" > UPSTREAM_REF
+            git commit -am "chore: bump upstream to $SHORT"
+            git push --force origin "upstream/$SHORT"
+            title="Upstream $SHORT passed — ready to merge"
+            printf '\nMerge: `git merge origin/upstream/%s` into main (the push builds the image; prod stays pinned by digest until deployed).\n' "$SHORT" >> body.md
+          else
+            title="Upstream $SHORT FAILED — needs a fix"
+          fi
+          existing="$(gh issue list --state open --search "in:title \"Upstream $SHORT\"" --json number -q '.[0].number')"
+          if [ -n "$existing" ]; then gh issue comment "$existing" --body-file body.md
+          else gh issue create --title "$title" --body-file body.md; fi

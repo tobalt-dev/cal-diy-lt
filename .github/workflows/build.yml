@@ -37,6 +37,9 @@ jobs:
       - name: Apply overlay
         run: python3 scripts/apply-overlay.py overlay upstream
 
+      - name: i18n placeholders match English
+        run: python3 scripts/i18n-drift.py upstream overlay/packages/i18n/locales/lt/common.json
+
       # The Next.js build needs ~6 GB heap and the image is ~9 GB; default runner disk is too small.
       - name: Free disk space
         run: |

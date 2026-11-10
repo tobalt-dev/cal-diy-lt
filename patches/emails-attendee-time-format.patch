@@ -1,0 +1,12 @@
+--- a/packages/emails/src/templates/BaseScheduledEmail.tsx	2026-11-10 13:55:32.434476565 +0200
++++ b/packages/emails/src/templates/BaseScheduledEmail.tsx	2026-11-10 13:55:32.456476441 +0200
+@@ -30,7 +30,8 @@
+ ) => {
+   const { t, timeZone, locale, timeFormat: timeFormat_ } = props;
+ 
+-  const timeFormat = timeFormat_ ?? TimeFormat.TWELVE_HOUR;
++  // Booking never sets attendee.timeFormat, so attendee emails always fell back to 12h; use the organizer's setting.
++  const timeFormat = timeFormat_ ?? props.calEvent.organizer?.timeFormat ?? TimeFormat.TWELVE_HOUR;
+ 
+   function getRecipientStart(format: string) {
+     return dayjs(props.calEvent.startTime).tz(timeZone).format(format);
