@@ -1,0 +1,10 @@
+# Copy to calcom-check.conf next to the script (or set CALCOM_CHECK_CONF) and fill in.
+URL=
+PROD_SSH=
+OPS_SSH=
+APP=
+DB=
+HB_PGC=
+HB_JOB=
+COMPOSE=
+RESEND_TOKEN_FILE=
